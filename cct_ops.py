@@ -96,6 +96,22 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
     bl_label = 'Vegetation Vertex Colors'
     bl_options = {'REGISTER', 'UNDO'}
 
+    clear_trunk: bpy.props.BoolProperty(
+        name="Clear Trunk",
+        default=False,
+        description="Whether to clear trunk vertex colors"
+    )
+
+    branch_distance_exp: bpy.props.FloatProperty(
+        name="Branch Distance Exponent",
+        default=1
+    )
+
+    leaves_distance_exp: bpy.props.FloatProperty(
+        name="Leaves Distance Exponent",
+        default=1
+    )
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -114,7 +130,7 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
 
             cols.data[loop_index].color = c
 
-    def distanceVC(self, obj, origin, maxDistance, channel):
+    def distanceVC(self, obj, origin, maxDistance, exponent, channel):
         maxDistance = max(maxDistance, 0.0000001)
 
         mesh = obj.data
@@ -124,6 +140,7 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
             vi = loop.vertex_index
             vertexPos = obj.matrix_world @ mesh.vertices[vi].co
             distance = min(1.0, (vertexPos - origin).length / maxDistance)
+            distance = math.pow(distance, exponent)
         
             cols.data[loop_index].color[channel] = distance
 
@@ -146,16 +163,29 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
         allSet = [1] * 4
         
         trunkObj = context.active_object
-        self.fillVC(trunkObj.data, blackColor, allSet)
+
+        if self.clear_trunk:        
+            self.fillVC(trunkObj.data, blackColor, allSet)
+
+        branchesByDistanceToOrigin = []
+        for i, branch in enumerate(trunkObj.children):
+            branchesByDistanceToOrigin.append((i, branch.location.length))
+
+        branchesByDistanceToOrigin.sort(key=lambda tup: tup[1])
 
         random.seed(trunkObj.name)
+        seed = random.random()
+        goldenRatio = (1 + math.sqrt(5)) / 2
+        branchIds = [0] * len(trunkObj.children)
+        for i in range(len(branchIds)):
+            branchIds[branchesByDistanceToOrigin[i][0]] = math.modf(seed + i * goldenRatio)[0]
+            
 
-        for branchObj in trunkObj.children:
+        for branchIndex, branchObj in enumerate(trunkObj.children):
             if branchObj.type != 'MESH':
                 continue
-
-            branchId = random.random()
-            branchFillColor = [0, branchId, 0, 0]
+            
+            branchFillColor = [0, branchIds[branchIndex], 0, 0]
             self.fillVC(branchObj.data, branchFillColor, allSet)
             for leafObj in branchObj.children:
                 if branchObj.type == 'MESH':
@@ -168,14 +198,14 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
                 if branchObj.type == 'MESH':
                     maxDistance = max(maxDistance, self.findMaxDistance(leafObj, branchOrigin))
 
-            self.distanceVC(branchObj, branchOrigin, maxDistance, 2)
+            self.distanceVC(branchObj, branchOrigin, maxDistance, self.branch_distance_exp, 2)
             for leafObj in branchObj.children:
                 if branchObj.type == 'MESH':
-                    self.distanceVC(leafObj, branchOrigin, maxDistance, 2)
+                    self.distanceVC(leafObj, branchOrigin, maxDistance, self.branch_distance_exp, 2)
                     
                     leafOrigin = leafObj.matrix_world.to_translation()
                     maxLeafDistance = self.findMaxDistance(leafObj, leafOrigin)
-                    self.distanceVC(leafObj, leafOrigin, maxLeafDistance, 0)
+                    self.distanceVC(leafObj, leafOrigin, maxLeafDistance, self.leaves_distance_exp, 0)
 
         bpy.ops.object.mode_set(mode=oldMode)
 
