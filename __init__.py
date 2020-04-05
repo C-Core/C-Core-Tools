@@ -43,6 +43,7 @@ class CCORETOOLS_PT_MainPanel(bpy.types.Panel):
         layout.operator('ccoretools.origin_to_selected')
         layout.operator('ccoretools.origin_to_lowest_uv')
         layout.operator('ccoretools.vegetation_vertex_colors')
+        layout.operator('ccoretools.vegetation_normals')
 
         layout.separator()
 
@@ -51,6 +52,7 @@ classes = (
     cct_ops.CCORETOOLS_OT_OriginToSelected,
     cct_ops.CCORETOOLS_OT_OriginToLowestUv,
     cct_ops.CCORETOOLS_OT_VegetationVertexColors,
+    cct_ops.CCORETOOLS_OT_VegetationNormals,
     CCORETOOLS_PT_MainPanel
 )
 

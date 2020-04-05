@@ -24,7 +24,7 @@ class CCORETOOLS_OT_OriginToSelected(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.active_object
-        return context.object.mode == 'EDIT' and obj is not None and obj.type == 'MESH'
+        return obj is not None and obj.type == 'MESH' and context.object.mode == 'EDIT'
 
     def execute(self, context):
         oldPivot = bpy.context.scene.tool_settings.transform_pivot_point
@@ -208,5 +208,108 @@ class CCORETOOLS_OT_VegetationVertexColors(bpy.types.Operator):
                     self.distanceVC(leafObj, leafOrigin, maxLeafDistance, self.leaves_distance_exp, 0)
 
         bpy.ops.object.mode_set(mode=oldMode)
+
+        return {'FINISHED'}
+
+class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
+    bl_idname = 'ccoretools.vegetation_normals'
+    bl_label = 'Vegetation Normals'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    inflation: bpy.props.FloatProperty(
+        name="Inflation",
+        default=0.3
+    )
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and obj.type == 'MESH'
+
+    def polygonToMetaball(self, meshObj, polygon, shellObj):
+        positions = []
+        for idx in polygon.vertices:
+            position = meshObj.matrix_world @ meshObj.data.vertices[idx].co
+            position -= shellObj.location
+            positions.append(position)
+
+        center = Vector((0, 0, 0))
+        for pos in positions:
+            center += pos
+
+        center /= len(positions)
+
+        maxDistSquare = 0
+        for pos in positions:
+            distSquare = (pos - center).length_squared
+            maxDistSquare = max(maxDistSquare, distSquare)
+
+        metaBall = shellObj.data.elements.new()
+        metaBall.co = center
+        metaBall.radius = math.sqrt(maxDistSquare) * (1 + self.inflation)
+
+    def meshToMetaBallsRecursive(self, meshObj, shellObj):
+        if meshObj.type != 'MESH':
+            return
+
+        for polygon in meshObj.data.polygons:
+            self.polygonToMetaball(meshObj, polygon, shellObj)
+
+        for childObj in meshObj.children:
+            self.meshToMetaBallsRecursive(childObj, shellObj)
+
+    def execute(self, context):
+        trunkObj = context.active_object
+
+        # Ensure meta ball object exists
+        shellObjName = trunkObj.name + "NormalsShell"
+        shellObjIndex = context.scene.objects.find(shellObjName)
+        shellObj = None
+        if shellObjIndex >= 0:
+            shellObj = context.scene.objects[shellObjIndex]
+        else:
+            shellObj = bpy.data.objects.new(shellObjName, bpy.data.metaballs.new('Metaballs'))
+            shellObj.location = trunkObj.matrix_world.to_translation()
+            shellObj.data.resolution = 0.2
+            context.view_layer.active_layer_collection.collection.objects.link(shellObj)
+
+        if shellObj.type != 'META':
+            return {'CANCELED'}
+
+        # Metaballs from polygons
+        shellObj.data.elements.clear()
+        self.meshToMetaBallsRecursive(trunkObj, shellObj)
+        shellObj.hide_set(state=False)
+
+        # Delete old mesh
+        meshObjName = trunkObj.name + "NormalsMesh"
+        meshObjIndex = context.scene.objects.find(meshObjName)
+        if meshObjIndex >= 0:
+            bpy.ops.object.select_all(action='DESELECT')
+            meshObj = context.scene.objects[meshObjIndex]
+            meshObj.hide_set(state=False)
+            meshObj.select_set(state=True)
+            bpy.ops.object.delete()
+
+        # Convert to mesh
+        bpy.ops.object.select_all(action='DESELECT')
+        shellObj.select_set(state=True)
+        context.view_layer.objects.active = shellObj
+        bpy.ops.object.convert(target='MESH', keep_original=True)
+
+        meshObj = context.active_object
+        meshObj.name = meshObjName
+        
+        # Hide helper object
+        shellObj.hide_set(state=True)
+        meshObj.hide_set(state=True)
+
+        # Add modifier
+
+
+        # Restore selection
+        bpy.ops.object.select_all(action='DESELECT')
+        trunkObj.select_set(state=True)
+        context.view_layer.objects.active = trunkObj
 
         return {'FINISHED'}
