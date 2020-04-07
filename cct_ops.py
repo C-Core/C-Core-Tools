@@ -221,6 +221,8 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
         default=0.3
     )
 
+    leafObjs = []
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -248,18 +250,22 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
         metaBall.co = center
         metaBall.radius = math.sqrt(maxDistSquare) * (1 + self.inflation)
 
-    def meshToMetaBallsRecursive(self, meshObj, shellObj):
+    def meshToMetaBallsRecursive(self, meshObj, shellObj, hierarchyLevel):
         if meshObj.type != 'MESH':
             return
+
+        if hierarchyLevel >= 2:
+            self.leafObjs.append(meshObj)
 
         for polygon in meshObj.data.polygons:
             self.polygonToMetaball(meshObj, polygon, shellObj)
 
         for childObj in meshObj.children:
-            self.meshToMetaBallsRecursive(childObj, shellObj)
+            self.meshToMetaBallsRecursive(childObj, shellObj, hierarchyLevel + 1)
 
     def execute(self, context):
         trunkObj = context.active_object
+        self.leafObjs = []
 
         # Ensure meta ball object exists
         shellObjName = trunkObj.name + "NormalsShell"
@@ -278,7 +284,7 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
 
         # Metaballs from polygons
         shellObj.data.elements.clear()
-        self.meshToMetaBallsRecursive(trunkObj, shellObj)
+        self.meshToMetaBallsRecursive(trunkObj, shellObj, 0)
         shellObj.hide_set(state=False)
 
         # Delete old mesh
@@ -305,7 +311,19 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
         meshObj.hide_set(state=True)
 
         # Add modifier
+        for leafObj in self.leafObjs:
+            leafObj.data.use_auto_smooth = True
 
+            mod = leafObj.modifiers.get("VegetationNormals")
+            if mod is None:
+                mod = leafObj.modifiers.new("VegetationNormals", 'DATA_TRANSFER')
+
+            mod.show_in_editmode = True
+            mod.show_on_cage = True
+            mod.object = meshObj
+            mod.use_loop_data = True
+            mod.data_types_loops = {'CUSTOM_NORMAL'}
+            mod.loop_mapping = 'POLYINTERP_NEAREST'
 
         # Restore selection
         bpy.ops.object.select_all(action='DESELECT')
