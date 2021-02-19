@@ -36,6 +36,9 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
             context.view_layer.active_layer_collection = layerCollection
             collection = layerCollection.collection
 
+            if collection.name.startswith("."):
+                continue
+
             obj = collection.all_objects.values()[0]
             oldLocation = obj.location.copy()
             obj.location = (0, 0, 0)
