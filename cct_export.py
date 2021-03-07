@@ -39,10 +39,15 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
             if collection.name.startswith("."):
                 continue
 
-            obj0 = collection.all_objects.values()[0]
+            objects = sorted(
+                collection.all_objects.values(),
+                key = lambda c: c.name.lower()
+            )
+
+            obj0 = objects[0]
             moveToOrigin = obj0.location.copy()
-            
-            for obj in collection.all_objects.values():
+          
+            for obj in objects:
                 obj.location -= moveToOrigin
 
             filepath = bpy.path.abspath(props.path) + collection.name + '.fbx'
@@ -50,7 +55,7 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
             bpy.ops.export_scene.fbx(filepath=filepath, check_existing=False, use_active_collection=True)
 
             # restore location
-            for obj in collection.all_objects.values():
+            for obj in objects:
                 obj.location += moveToOrigin
 
         context.view_layer.active_layer_collection = oldActiveLayer
