@@ -27,9 +27,6 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
         oldActiveLayer = context.view_layer.active_layer_collection
 
         for layerCollection in context.view_layer.layer_collection.children:
-            if not layerCollection.has_objects():
-                continue
-
             if not layerCollection.visible_get():
                 continue
 
@@ -43,6 +40,9 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
                 collection.all_objects.values(),
                 key = lambda c: c.name.lower()
             )
+
+            if not objects:
+                continue
 
             obj0 = objects[0]
             moveToOrigin = obj0.location.copy()
