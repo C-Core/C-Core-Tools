@@ -46,9 +46,10 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
 
             obj0 = objects[0]
             moveToOrigin = obj0.location.copy()
-          
+
             for obj in objects:
-                obj.location -= moveToOrigin
+                if not obj.parent:
+                    obj.location -= moveToOrigin
 
             filepath = bpy.path.abspath(props.path) + collection.name + '.fbx'
             #print(filepath)
@@ -56,7 +57,8 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
 
             # restore location
             for obj in objects:
-                obj.location += moveToOrigin
+                if not obj.parent:
+                    obj.location += moveToOrigin
 
         context.view_layer.active_layer_collection = oldActiveLayer
 
