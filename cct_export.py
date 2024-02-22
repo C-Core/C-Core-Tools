@@ -60,7 +60,7 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
 
             filepath = bpy.path.abspath(props.path) + collection.name + '.fbx'
             #print(filepath)
-            bpy.ops.export_scene.fbx(filepath=filepath, check_existing=False, use_active_collection=True)
+            bpy.ops.export_scene.fbx(filepath=filepath, check_existing=False, use_active_collection=True, use_armature_deform_only=True, add_leaf_bones=False)
 
             # restore location
             for obj in parentObjects:
