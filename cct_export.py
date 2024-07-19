@@ -61,7 +61,7 @@ class CCORETOOLS_OT_BatchExport(bpy.types.Operator):
             filepath = bpy.path.abspath(props.path) + collection.name + '.glb'
             #print(filepath)
             #bpy.ops.export_scene.fbx(filepath=filepath, check_existing=False, use_active_collection=True, use_armature_deform_only=True, add_leaf_bones=False)
-            bpy.ops.export_scene.gltf(filepath=filepath, check_existing=False, use_active_collection=True, export_apply=True, export_image_format='NONE', export_def_bones=True)
+            bpy.ops.export_scene.gltf(filepath=filepath, check_existing=False, use_active_collection=True, export_apply=True, export_image_format='NONE', export_def_bones=True, export_vertex_color='ACTIVE')
 
             # restore location
             for obj in parentObjects:
