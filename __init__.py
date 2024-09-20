@@ -49,6 +49,11 @@ class CCORETOOLS_PT_MainPanel(bpy.types.Panel):
         layout.operator('ccoretools.vegetation_normals')
 
         layout.separator()
+
+        layout.label(text="Mesh Tools")
+        layout.operator('ccoretools.edge_bevel')
+
+        layout.separator()
         
         layout.label(text="Batch Export Collections")
 
@@ -63,6 +68,7 @@ classes = (
     cct_ops.CCORETOOLS_OT_OriginToLowestUv,
     cct_ops.CCORETOOLS_OT_VegetationVertexColors,
     cct_ops.CCORETOOLS_OT_VegetationNormals,
+    cct_ops.CCORETOOLS_OT_EdgeBevel,
     CCORETOOLS_BatchExportProps,
     CCORETOOLS_PT_MainPanel
 )

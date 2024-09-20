@@ -12,6 +12,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import bpy
+import bmesh
 import math
 import random
 from mathutils import Color, Vector, Matrix
@@ -280,7 +281,7 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
             context.view_layer.active_layer_collection.collection.objects.link(shellObj)
 
         if shellObj.type != 'META':
-            return {'CANCELED'}
+            return {'CANCELLED'}
 
         # Metaballs from polygons
         shellObj.data.elements.clear()
@@ -331,3 +332,89 @@ class CCORETOOLS_OT_VegetationNormals(bpy.types.Operator):
         context.view_layer.objects.active = trunkObj
 
         return {'FINISHED'}
+    
+
+class CCORETOOLS_OT_EdgeBevel(bpy.types.Operator):
+    bl_idname = 'ccoretools.edge_bevel'
+    bl_label = 'Edge Bevel'
+    bl_options = {'REGISTER', 'UNDO'}
+
+    preset: bpy.props.EnumProperty(
+        name = "Preset", 
+        items=[('L', "Large", ""), ('M', "Medium", ""), ('S', "Small", ""), ('C', "Custom", "")],
+        default = 'M'
+    )
+
+    outer_width : bpy.props.FloatProperty(
+        name = "Outer Width",
+        default = 0.05
+    )
+
+    inner_width : bpy.props.FloatProperty(
+        name = "Inner Width",
+        default = 0.02
+    )
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj is not None and obj.type == 'MESH' and context.object.mode == 'EDIT'
+    
+    def isSameEdge(self, e, p0, p1):
+        e0 = e.verts[0].co
+        e1 = e.verts[1].co
+        l0 = (p0 - e0).length
+        l1 = (p1 - e1).length
+        l2 = (p0 - e1).length
+        l3 = (p1 - e0).length
+        eps = 0.001
+        return (l0 < eps and l1 < eps) or (l2 < eps and l3 < eps)
+    
+    def execute(self, context):
+        outer_width = self.outer_width
+        inner_width = self.inner_width
+        if self.preset == 'L':
+            outer_width = 0.1
+            inner_width = 0.04
+        elif self.preset == 'M':
+            outer_width = 0.05
+            inner_width = 0.02
+        elif self.preset == 'S':
+            outer_width = 0.05
+            inner_width = 0.01
+
+        obj = context.active_object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+        
+        selectedEdges = []
+        edgePositions = []
+        for e in bm.edges:
+            if e.select:
+                selectedEdges.append(e)
+                edgePositions.append([e.verts[0].co.copy(), e.verts[1].co.copy()])
+
+        if not selectedEdges:
+            return {'CANCELLED'}
+        
+        bmesh.ops.bevel(bm, geom=selectedEdges, offset=outer_width, segments=2, profile=1, affect='EDGES', loop_slide=True)
+
+        selectedEdges = []
+        for e in bm.edges:
+            #print('e0:', e.verts[0].co), ' e1:', str(e.verts[1].co))
+            p0 = e.verts[0].co
+            p1 = e.verts[1].co
+
+            for f in edgePositions:
+                if self.isSameEdge(e, f[0], f[1]):
+                    selectedEdges.append(e)
+                    break
+
+        #if not selectedEdges:
+        #    return {'CANCELLED'}
+
+        #bmesh.ops.bevel(bm, geom=selectedEdges, offset=inner_width, segments=1, profile=0.5, affect='EDGES', loop_slide=True, harden_normals=True)
+        bmesh.update_edit_mesh(mesh)
+
+        return {'FINISHED'}
+    
