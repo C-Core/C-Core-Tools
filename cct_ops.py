@@ -15,7 +15,7 @@ import bpy
 import bmesh
 import math
 import random
-from mathutils import Color, Vector, Matrix
+from mathutils import Color, Vector, Matrix, geometry
 
 class CCORETOOLS_OT_OriginToSelected(bpy.types.Operator):
     bl_idname = 'ccoretools.origin_to_selected'
@@ -360,15 +360,22 @@ class CCORETOOLS_OT_EdgeBevel(bpy.types.Operator):
         obj = context.active_object
         return obj is not None and obj.type == 'MESH' and context.object.mode == 'EDIT'
     
-    def isSameEdge(self, e, p0, p1):
+    def isSameEdge(self, e, p0, p1, eps):
         e0 = e.verts[0].co
         e1 = e.verts[1].co
         l0 = (p0 - e0).length
         l1 = (p1 - e1).length
         l2 = (p0 - e1).length
         l3 = (p1 - e0).length
-        eps = 0.001
         return (l0 < eps and l1 < eps) or (l2 < eps and l3 < eps)
+    
+    def findVert(self, vertList, position, eps):
+        for v in vertList:
+            l = (v.co - position).length
+            if l < eps:
+                return v
+            
+        return None
     
     def execute(self, context):
         outer_width = self.outer_width
@@ -382,6 +389,8 @@ class CCORETOOLS_OT_EdgeBevel(bpy.types.Operator):
         elif self.preset == 'S':
             outer_width = 0.05
             inner_width = 0.01
+
+        eps = 0.001
 
         obj = context.active_object
         mesh = obj.data
@@ -397,24 +406,63 @@ class CCORETOOLS_OT_EdgeBevel(bpy.types.Operator):
         if not selectedEdges:
             return {'CANCELLED'}
         
-        bmesh.ops.bevel(bm, geom=selectedEdges, offset=outer_width, segments=2, profile=1, affect='EDGES', loop_slide=True)
+        bevelRes = bmesh.ops.bevel(bm, geom=selectedEdges, offset=outer_width, segments=2, profile=1, affect='EDGES', loop_slide=True)
+        bevelVerts = bevelRes['verts']
+
+        vertsToMerge = []
+        for v in bevelVerts:
+            #print("bevelVerts", v, v.is_valid)
+
+            for p in edgePositions:
+                pointOnLine, t = geometry.intersect_point_line(v.co, p[0], p[1])
+                d = (v.co - pointOnLine).length
+                if d < eps and t > eps and t < 1-eps:
+                    targetPos = p[0] if t < 0.5 else p[1]
+                    vertsToMerge.append([targetPos, v.co])
+
+        for v in vertsToMerge:
+            targetVert = self.findVert(bm.verts, v[0], eps)
+            otherVert = self.findVert(bm.verts, v[1], eps)
+            if targetVert and otherVert:
+                bmesh.ops.pointmerge(bm, verts=[targetVert, otherVert], merge_co=targetVert.co)
 
         selectedEdges = []
         for e in bm.edges:
             #print('e0:', e.verts[0].co), ' e1:', str(e.verts[1].co))
-            p0 = e.verts[0].co
-            p1 = e.verts[1].co
-
             for f in edgePositions:
-                if self.isSameEdge(e, f[0], f[1]):
+                if self.isSameEdge(e, f[0], f[1], eps):
                     selectedEdges.append(e)
                     break
 
-        #if not selectedEdges:
-        #    return {'CANCELLED'}
+        if not selectedEdges:
+            bmesh.update_edit_mesh(mesh)
+            return {'FINISHED'}
+        
+        bevelRes = bmesh.ops.bevel(bm, geom=selectedEdges, offset=inner_width, segments=1, profile=0.5, affect='EDGES', loop_slide=True, harden_normals=True)
+        bevelVerts = bevelRes['verts']
 
-        #bmesh.ops.bevel(bm, geom=selectedEdges, offset=inner_width, segments=1, profile=0.5, affect='EDGES', loop_slide=True, harden_normals=True)
+        loopIndices = []
+        for v in bevelVerts:
+            for l in v.link_loops:
+                loopIndices.append(l.index)
+
         bmesh.update_edit_mesh(mesh)
+
+        oldMode = context.object.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        if not mesh.vertex_colors:
+            mesh.vertex_colors.new()
+
+            blackColor = [0] * 4
+            for loop_index, loop in enumerate(mesh.loops):
+                mesh.vertex_colors[0].data[loop_index].color = blackColor
+
+        cols = mesh.vertex_colors[0]
+        for i in loopIndices:            
+            cols.data[i].color[1] = 1
+
+        bpy.ops.object.mode_set(mode=oldMode)     
 
         return {'FINISHED'}
     
