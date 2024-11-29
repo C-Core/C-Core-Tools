@@ -59,11 +59,13 @@ class CCORETOOLS_PT_MainPanel(bpy.types.Panel):
 
         props = context.scene.cct_export_props
         layout.prop(props, "path", text="Path")
-        layout.operator("ccoretools.batch_export")
+        layout.operator("ccoretools.batch_export_fbx")
+        layout.operator("ccoretools.batch_export_gltf")
 
 
 classes = (
-    cct_export.CCORETOOLS_OT_BatchExport,
+    cct_export.CCORETOOLS_OT_BatchExportFbx,
+    cct_export.CCORETOOLS_OT_BatchExportGltf,
     cct_ops.CCORETOOLS_OT_OriginToSelected,
     cct_ops.CCORETOOLS_OT_OriginToLowestUv,
     cct_ops.CCORETOOLS_OT_VegetationVertexColors,
