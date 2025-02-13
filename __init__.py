@@ -49,20 +49,28 @@ class CCORETOOLS_PT_MainPanel(bpy.types.Panel):
         layout.operator('ccoretools.vegetation_normals')
 
         layout.separator()
+
+        layout.label(text="Mesh Tools")
+        layout.operator('ccoretools.edge_bevel')
+
+        layout.separator()
         
         layout.label(text="Batch Export Collections")
 
         props = context.scene.cct_export_props
         layout.prop(props, "path", text="Path")
-        layout.operator("ccoretools.batch_export")
+        layout.operator("ccoretools.batch_export_fbx")
+        layout.operator("ccoretools.batch_export_gltf")
 
 
 classes = (
-    cct_export.CCORETOOLS_OT_BatchExport,
+    cct_export.CCORETOOLS_OT_BatchExportFbx,
+    cct_export.CCORETOOLS_OT_BatchExportGltf,
     cct_ops.CCORETOOLS_OT_OriginToSelected,
     cct_ops.CCORETOOLS_OT_OriginToLowestUv,
     cct_ops.CCORETOOLS_OT_VegetationVertexColors,
     cct_ops.CCORETOOLS_OT_VegetationNormals,
+    cct_ops.CCORETOOLS_OT_EdgeBevel,
     CCORETOOLS_BatchExportProps,
     CCORETOOLS_PT_MainPanel
 )
